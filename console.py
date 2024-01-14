@@ -2,8 +2,9 @@
 """ console """
 
 import cmd
-from datetime import datetime
-import models
+import shlex
+import re
+import os
 from models.amenity import Amenity
 from models.base_model import BaseModel
 from models.city import City
@@ -11,12 +12,18 @@ from models.place import Place
 from models.review import Review
 from models.state import State
 from models.user import User
-import shlex  # for splitting the line along spaces except in double quotes
-import re
+import models
 
 classes = {"Amenity": Amenity, "BaseModel": BaseModel, "City": City,
            "Place": Place, "Review": Review, "State": State, "User": User}
 
+storage_type = os.getenv('HBNB_TYPE_STORAGE', 'file')
+if storage_type == 'db':
+    from models.engine.db_storage import DBStorage
+    models.storage = DBStorage()
+else:
+    from models.engine.file_storage import FileStorage
+    models.storage = FileStorage()
 
 class HBNBCommand(cmd.Cmd):
     """ HBNH console """
@@ -37,20 +44,10 @@ class HBNBCommand(cmd.Cmd):
     def do_create(self, arg):
         """Creates a new instance of a class
 
-        Command syntax: create <Class name> <param 1> <param 2> <param 3>...
+        Usage: create <Class name> <param 1>=<value 1> <param 2>=<value 2> ...
 
-        Param syntax: <key name>=<value>
-
-        Value syntax:
-            string: "<value>"
-                Internal double quotes should be escaped. Spaces can be
-                represented using `_` and will be replaced by spaces.
-            float: <unit>.<decimal>
-                Unit or decimal may be missing.
-            int: <number>
-                Decimal integer.
-
-        Any parameter that does not fit this pattern will be ignored.
+        Example:
+        create BaseModel name="John Doe" age=25
         """
         args = shlex.split(arg)
         if len(args) == 0:
@@ -77,18 +74,24 @@ class HBNBCommand(cmd.Cmd):
                 else:
                     kwargs[match['key']] = int(match['int'])
 
-        instance = classes[args[0]](**kwargs)
-        try:
-            instance.save()
-        except Exception as e:
-            print("** could not save [{}] object **".format(args[0]))
-            print(e)
-            return False
-        else:
-            print(instance.id)
+            instance = classes[args[0]](**kwargs)
+            try:
+                instance.save()
+            except Exception as e:
+                print("** could not save [{}] object **".format(args[0]))
+                print(e)
+                return False
+            else:
+                print(instance.id)
 
     def do_show(self, arg):
-        """Prints an instance as a string based on the class and id"""
+        """Prints the string representation of an instance
+
+        Usage: show <Class name> <id>
+
+        Example:
+        show BaseModel 1234-1234-1234
+        """
         args = shlex.split(arg)
         if len(args) == 0:
             print("** class name missing **")
@@ -106,7 +109,13 @@ class HBNBCommand(cmd.Cmd):
             print("** class doesn't exist **")
 
     def do_destroy(self, arg):
-        """Deletes an instance based on the class and id"""
+        """Deletes an instance based on the class name and id
+
+        Usage: destroy <Class name> <id>
+
+        Example:
+        destroy BaseModel 1234-1234-1234
+        """
         args = shlex.split(arg)
         if len(args) == 0:
             print("** class name missing **")
@@ -124,7 +133,14 @@ class HBNBCommand(cmd.Cmd):
             print("** class doesn't exist **")
 
     def do_all(self, arg):
-        """Prints string representations of instances"""
+        """Prints string representations of instances
+
+        Usage: all [Class name]
+
+        Example:
+        all
+        all BaseModel
+        """
         args = shlex.split(arg)
         obj_list = []
         if len(args) == 0:
@@ -140,7 +156,13 @@ class HBNBCommand(cmd.Cmd):
         print(obj_list)
 
     def do_update(self, arg):
-        """Update an instance based on the class name, id, attribute & value"""
+        """Update an instance based on the class name, id, attribute & value
+
+        Usage: update <Class name> <id> <attribute name> <new value>
+
+        Example:
+        update BaseModel 1234-1234-1234 name "John Doe"
+        """
         args = shlex.split(arg)
         integers = ["number_rooms", "number_bathrooms", "max_guest",
                     "price_by_night"]
@@ -176,6 +198,72 @@ class HBNBCommand(cmd.Cmd):
                 print("** instance id missing **")
         else:
             print("** class doesn't exist **")
+
+    def do_help(self, arg):
+        """Display help for available commands"""
+        commands = [
+            'EOF', 'emptyline', 'quit', 'create', 'show', 'destroy', 'all',
+            'update', 'count', 'get', 'close'
+        ]
+        print("Available commands:")
+        for cmd in commands:
+            print(f"  {cmd}")
+        print("\nUsage examples:")
+        print("  create BaseModel name=\"John Doe\" age=25")
+        print("  show BaseModel 1234-1234-1234")
+        print("  destroy BaseModel 1234-1234-1234")
+        print("  all")
+        print("  all BaseModel")
+        print("  update BaseModel 1234-1234-1234 name \"John Doe\"")
+        print("  count BaseModel")
+        print("  get BaseModel 1234-1234-1234")
+        print("  close")
+
+    def do_count(self, arg):
+        """Count the number of instances of a class
+
+        Usage: count <Class name>
+
+        Example:
+        count BaseModel
+        """
+        args = shlex.split(arg)
+        if len(args) == 0:
+            print("** class name missing **")
+            return False
+        if args[0] in classes:
+            count = models.storage.count(args[0])
+            print(count)
+        else:
+            print("** class doesn't exist **")
+
+    def do_get(self, arg):
+        """Retrieve an instance by ID
+
+        Usage: get <Class name> <id>
+
+        Example:
+        get BaseModel 1234-1234-1234
+        """
+        args = shlex.split(arg)
+        if len(args) == 0:
+            print("** class name missing **")
+            return False
+        if len(args) < 2:
+            print("** instance id missing **")
+            return False
+        if args[0] in classes:
+            obj = models.storage.get(args[0], args[1])
+            if obj:
+                print(obj)
+            else:
+                print("** no instance found **")
+        else:
+            print("** class doesn't exist **")
+
+    def do_close(self, arg):
+        """Close the console"""
+        return True
 
 if __name__ == '__main__':
     HBNBCommand().cmdloop()
