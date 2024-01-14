@@ -72,7 +72,7 @@ No known bugs at this time.
 - Alexa Orrico - [Github](https://github.com/alexaorrico) / [Twitter](https://twitter.com/alexa_orrico)  
 - Thomas Wang - [Github](https://github.com/thomaspwang) / [Twitter](https://twitter.com/thpwang)
 
-- Thomas Wang - [Github](https://github.com/YohanesSenbeto) / [Twitter](https://twitter.com/YohanesSenbeto)
+- Yohanes Senbeto - [Github](https://github.com/YohanesSenbeto) / [Twitter](https://twitter.com/YohanesSenbeto)
 
 ###### Version 3
 
